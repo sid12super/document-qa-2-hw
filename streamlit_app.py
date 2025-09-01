@@ -1,11 +1,13 @@
 import streamlit as st
+import PyPDF2
 from openai import OpenAI
 
 # Show title and description.
-st.title("📄 Document question answering")
+st.title("📄 Sid's Document question answering")
 st.write(
     "Upload a document below and ask a question about it – GPT will answer! "
     "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
+    "Using GPT-5-nano"
 )
 
 # Ask user for their OpenAI API key via `st.text_input`.
@@ -21,7 +23,7 @@ else:
 
     # Let the user upload a file via `st.file_uploader`.
     uploaded_file = st.file_uploader(
-        "Upload a document (.txt or .md)", type=("txt", "md")
+        "Upload a document (.txt or .pdf)", type=("txt", "pdf")
     )
 
     # Ask the user for a question via `st.text_area`.
@@ -34,7 +36,21 @@ else:
     if uploaded_file and question:
 
         # Process the uploaded file and question.
-        document = uploaded_file.read().decode()
+        file_extension = uploaded_file.name.split('.')[-1]
+        if file_extension == 'txt':
+           document = uploaded_file.read().decode()
+        elif file_extension == 'pdf':
+          try:
+            pdf_reader = PyPDF2.PdfReader(uploaded_file)
+            document = ""
+            for page in pdf_reader.pages:
+                document += page.extract_text()
+          except Exception as e:
+            st.error(f"Error reading PDF file: {e}")
+            document = None
+        else:
+           st.error("Unsupported file type.")
+           document = None
         messages = [
             {
                 "role": "user",
@@ -44,10 +60,11 @@ else:
 
         # Generate an answer using the OpenAI API.
         stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-5-nano",
             messages=messages,
             stream=True,
         )
 
         # Stream the response to the app using `st.write_stream`.
         st.write_stream(stream)
+
