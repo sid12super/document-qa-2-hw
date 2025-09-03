@@ -1,13 +1,12 @@
 import streamlit as st
 import PyPDF2
-from openai import OpenAI
+import openai
 
 # Show title and description.
-st.title("📄 Sid's Document question answering")
+st.title("📄 Sid's Document Question Answering")
 st.write(
     "Upload a document below and ask a question about it – GPT will answer! "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "Using GPT-5-nano"
+    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys)."
 )
 
 # Ask user for their OpenAI API key via `st.text_input`.
@@ -15,10 +14,6 @@ openai_api_key = st.text_input("OpenAI API Key", type="password")
 if not openai_api_key:
     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
 else:
-
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
-
     # Add a model selector.
     model = st.selectbox(
         "Select a GPT model",
@@ -39,25 +34,21 @@ else:
     )
 
     if uploaded_file and question:
-
-        # Process the uploaded file and question.
+        # Process the uploaded file.
         file_extension = uploaded_file.name.split('.')[-1]
+        document = None
         if file_extension == 'txt':
             document = uploaded_file.read().decode()
         elif file_extension == 'pdf':
             try:
                 pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                document = ""
-                for page in pdf_reader.pages:
-                    document += page.extract_text()
+                document = "".join(page.extract_text() for page in pdf_reader.pages)
             except Exception as e:
                 st.error(f"Error reading PDF file: {e}")
-                document = None
-        else:
-            st.error("Unsupported file type.")
-            document = None
 
         if document:
+            # Prepare the OpenAI API request.
+            openai.api_key = openai_api_key
             messages = [
                 {
                     "role": "user",
@@ -67,24 +58,13 @@ else:
 
             # Generate an answer using the OpenAI API.
             try:
-                response = client.chat.completions.create(
-                    model=model,  # Use the selected model
+                response = openai.ChatCompletion.create(
+                    model=model,
                     messages=messages,
-                    stream=True,
                 )
-
-                # Stream the response to the app.
-                st.write("Response:")
-                response_text = ""
-                for chunk in response:
-                    if "choices" in chunk and len(chunk["choices"]) > 0:
-                        delta = chunk["choices"][0].get("delta", {})
-                        if "content" in delta:
-                            response_text += delta["content"]
-                            st.write(delta["content"], end="")
-
-                if not response_text:
-                    st.error("No response received from the model.")
+                answer = response["choices"][0]["message"]["content"]
+                st.write("### Response:")
+                st.write(answer)
             except Exception as e:
                 st.error(f"Error generating response: {e}")
 
