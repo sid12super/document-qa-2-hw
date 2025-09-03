@@ -21,6 +21,13 @@ else:
     # Create an OpenAI client.
     client = OpenAI(api_key=openai_api_key)
 
+    # Add a model selector.
+    model = st.selectbox(
+        "Select a GPT model",
+        options=["gpt-3.5-turbo", "gpt-4.1", "gpt-5-nano", "gpt-5-chat-latest"],
+        index=2,  # Default to "gpt-5-nano"
+    )
+
     # Let the user upload a file via `st.file_uploader`.
     uploaded_file = st.file_uploader(
         "Upload a document (.txt or .pdf)", type=("txt", "pdf")
@@ -60,11 +67,16 @@ else:
 
         # Generate an answer using the OpenAI API.
         stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=model,  # Use the selected model
             messages=messages,
             stream=True,
         )
 
         # Stream the response to the app using `st.write_stream`.
-        st.write_stream(stream)
+        st.write("Response:")
+        for chunk in stream:
+            delta = chunk["choices"][0]["delta"]
+            if "content" in delta:
+                st.write(delta["content"], end="")
+
 
