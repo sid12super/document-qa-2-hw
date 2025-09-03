@@ -62,7 +62,7 @@ else:
                     model=model,
                     messages=messages,
                 )
-                answer = response["choices"][0]["message"]["content"]
+                answer = response.choices[0].message["content"]
                 st.write("### Response:")
                 st.write(answer)
             except Exception as e:
