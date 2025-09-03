@@ -1,6 +1,6 @@
 import streamlit as st
 import PyPDF2
-import openai
+from openai import OpenAI
 
 # Show title and description.
 st.title("📄 Sid's Document Question Answering")
@@ -14,11 +14,14 @@ openai_api_key = st.text_input("OpenAI API Key", type="password")
 if not openai_api_key:
     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
 else:
+    # Create an OpenAI client.
+    client = OpenAI(api_key=openai_api_key)
+
     # Add a model selector.
     model = st.selectbox(
         "Select a GPT model",
         options=["gpt-3.5-turbo", "gpt-4.1", "gpt-5-nano", "gpt-5-chat-latest"],
-        index=2,  # Default to "gpt-5-nano"
+        index=0,  # Default to "gpt-3.5-turbo"
     )
 
     # Let the user upload a file via `st.file_uploader`.
@@ -48,7 +51,6 @@ else:
 
         if document:
             # Prepare the OpenAI API request.
-            openai.api_key = openai_api_key
             messages = [
                 {
                     "role": "user",
@@ -56,15 +58,26 @@ else:
                 }
             ]
 
-            # Generate an answer using the OpenAI API.
+            # Generate an answer using the OpenAI API with streaming.
             try:
-                response = openai.ChatCompletion.create(
+                response_stream = client.chat.completions.create(
                     model=model,
                     messages=messages,
+                    stream=True,
                 )
-                answer = response.choices[0].message["content"]
+
+                # Stream the response to the app.
                 st.write("### Response:")
-                st.write(answer)
+                response_text = ""
+                for chunk in response_stream:
+                    if "choices" in chunk and len(chunk["choices"]) > 0:
+                        delta = chunk["choices"][0].get("delta", {})
+                        if "content" in delta:
+                            response_text += delta["content"]
+                            st.write(delta["content"], end="")
+
+                if not response_text:
+                    st.error("No response received from the model.")
             except Exception as e:
                 st.error(f"Error generating response: {e}")
 
