@@ -1,31 +1,29 @@
 import streamlit as st
+import PyPDF2
 from openai import OpenAI
 
 # Show title and description.
-st.title("📄 Sid's Document Question Answering")
+st.title("📄 Sid's Document question answering")
 st.write(
     "Upload a document below and ask a question about it – GPT will answer! "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys)."
+    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
+    "Using GPT-5-nano"
 )
 
 # Ask user for their OpenAI API key via `st.text_input`.
+# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
+# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
 openai_api_key = st.text_input("OpenAI API Key", type="password")
 if not openai_api_key:
     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
 else:
+
     # Create an OpenAI client.
     client = OpenAI(api_key=openai_api_key)
 
-    # Add a dropdown for model selection.
-    model = st.selectbox(
-        "Select a GPT model",
-        options=["gpt-3.5-turbo", "gpt-4.1", "gpt-5-nano", "gpt-5-chat-latest"],
-        index=2,  # Default to "gpt-5-nano"
-    )
-
     # Let the user upload a file via `st.file_uploader`.
     uploaded_file = st.file_uploader(
-        "Upload a document (.txt or .md)", type=("txt", "md")
+        "Upload a document (.txt or .pdf)", type=("txt", "pdf")
     )
 
     # Ask the user for a question via `st.text_area`.
@@ -36,8 +34,23 @@ else:
     )
 
     if uploaded_file and question:
+
         # Process the uploaded file and question.
-        document = uploaded_file.read().decode()
+        file_extension = uploaded_file.name.split('.')[-1]
+        if file_extension == 'txt':
+           document = uploaded_file.read().decode()
+        elif file_extension == 'pdf':
+          try:
+            pdf_reader = PyPDF2.PdfReader(uploaded_file)
+            document = ""
+            for page in pdf_reader.pages:
+                document += page.extract_text()
+          except Exception as e:
+            st.error(f"Error reading PDF file: {e}")
+            document = None
+        else:
+           st.error("Unsupported file type.")
+           document = None
         messages = [
             {
                 "role": "user",
@@ -46,21 +59,14 @@ else:
         ]
 
         # Generate an answer using the OpenAI API.
-        try:
-            stream = client.chat.completions.create(
-                model=model,  # Use the selected model
-                messages=messages,
-                stream=True,
-            )
+        stream = client.chat.completions.create(
+            model="gpt-5-nano",
+            messages=messages,
+            stream=True,
+        )
 
-            # Stream the response to the app.
-            st.write("### Response:")
-            for chunk in stream:
-                if "choices" in chunk and len(chunk["choices"]) > 0:
-                    delta = chunk["choices"][0].get("delta", {})
-                    if "content" in delta:
-                        st.write(delta["content"], end="")
-        except Exception as e:
-            st.error(f"Error generating response: {e}")
+        # Stream the response to the app using `st.write_stream`.
+        st.write_stream(stream)
+
 
 
