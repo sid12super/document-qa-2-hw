@@ -11,8 +11,6 @@ st.write(
 )
 
 # Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
 openai_api_key = st.text_input("OpenAI API Key", type="password")
 if not openai_api_key:
     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
@@ -45,38 +43,49 @@ else:
         # Process the uploaded file and question.
         file_extension = uploaded_file.name.split('.')[-1]
         if file_extension == 'txt':
-           document = uploaded_file.read().decode()
+            document = uploaded_file.read().decode()
         elif file_extension == 'pdf':
-          try:
-            pdf_reader = PyPDF2.PdfReader(uploaded_file)
-            document = ""
-            for page in pdf_reader.pages:
-                document += page.extract_text()
-          except Exception as e:
-            st.error(f"Error reading PDF file: {e}")
-            document = None
+            try:
+                pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                document = ""
+                for page in pdf_reader.pages:
+                    document += page.extract_text()
+            except Exception as e:
+                st.error(f"Error reading PDF file: {e}")
+                document = None
         else:
-           st.error("Unsupported file type.")
-           document = None
-        messages = [
-            {
-                "role": "user",
-                "content": f"Here's a document: {document} \n\n---\n\n {question}",
-            }
-        ]
+            st.error("Unsupported file type.")
+            document = None
 
-        # Generate an answer using the OpenAI API.
-        stream = client.chat.completions.create(
-            model=model,  # Use the selected model
-            messages=messages,
-            stream=True,
-        )
+        if document:
+            messages = [
+                {
+                    "role": "user",
+                    "content": f"Here's a document: {document} \n\n---\n\n {question}",
+                }
+            ]
 
-        # Stream the response to the app using `st.write_stream`.
-        st.write("Response:")
-        for chunk in stream:
-            delta = chunk["choices"][0]["delta"]
-            if "content" in delta:
-                st.write(delta["content"], end="")
+            # Generate an answer using the OpenAI API.
+            try:
+                response = client.chat.completions.create(
+                    model=model,  # Use the selected model
+                    messages=messages,
+                    stream=True,
+                )
+
+                # Stream the response to the app.
+                st.write("Response:")
+                response_text = ""
+                for chunk in response:
+                    if "choices" in chunk and len(chunk["choices"]) > 0:
+                        delta = chunk["choices"][0].get("delta", {})
+                        if "content" in delta:
+                            response_text += delta["content"]
+                            st.write(delta["content"], end="")
+
+                if not response_text:
+                    st.error("No response received from the model.")
+            except Exception as e:
+                st.error(f"Error generating response: {e}")
 
 
