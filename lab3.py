@@ -92,7 +92,7 @@ def main():
 
                 # Create the API call to OpenAI using the selected buffer
                 stream = client.chat.completions.create(
-                    model="gpt-4o",
+                    model="gpt-5-chat-latest",
                     messages=[
                         {"role": m["role"], "content": m["content"]}
                         for m in messages_to_send
