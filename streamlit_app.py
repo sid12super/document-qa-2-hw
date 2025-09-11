@@ -8,22 +8,22 @@ def main():
 
     # Sidebar navigation
     st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Go to", ["Home", "HW1", "HW2"])
+    page = st.sidebar.radio("Go to", ["Home", "lab1", "lab2", "lab3"])
 
     # Render the selected page
     if page == "Home":
         # Landing page content
-        st.title("Welcome to the HW Manager")
+        st.title("Welcome to the lab Manager")
         st.write(
             "This multi-page app allows you to explore different homework assignments. "
-            "Use the sidebar to navigate to 'HW1' or 'HW2'!"
+            "Use the sidebar to navigate to 'lab1' or 'lab2' or 'lab3'!"
         )
-    elif page == "HW1":
-        lab1.main()  # Call the `main` function from HW1.py
-    elif page == "HW2":
-        lab2.main()  # Call the `main` function from HW2.py
-    elif page == "HW3":
-        lab3.main()  # Call the `main` function from HW3.py
+    elif page == "lab1":
+        lab1.main()  # Call the `main` function from lab1.py
+    elif page == "lab2":
+        lab2.main()  # Call the `main` function from lab2.py
+    elif page == "lab3":
+        lab3.main()  # Call the `main` function from lab3.py
 
 if __name__ == "__main__":
     main()
