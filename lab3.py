@@ -5,8 +5,8 @@ def main():
     """
     Main function to run the Streamlit chatbot application.
     """
-    st.title("🤖 GPT-4o Chatbot")
-    st.write("Ask me anything! I'm powered by OpenAI's gpt-4o model.")
+    st.title("🤖 GPT 5 Chatbot")
+    st.write("Ask me anything! I'm powered by OpenAI's gpt-5 model.")
 
     # --- Sidebar for API Key Configuration ---
     # It's recommended to use Streamlit secrets for production apps.
@@ -54,7 +54,7 @@ def main():
             with st.spinner("Thinking..."):
                 # Create the API call to OpenAI
                 stream = client.chat.completions.create(
-                    model="gpt-4o",
+                    model="gpt-5-chat-latest",
                     messages=[
                         {"role": m["role"], "content": m["content"]}
                         for m in st.session_state.messages
