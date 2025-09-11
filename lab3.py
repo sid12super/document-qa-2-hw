@@ -2,7 +2,7 @@ import streamlit as st
 from openai import OpenAI
 import tiktoken
 
-def get_token_count(text, model="gpt-4o"):
+def get_token_count(text, model="gpt-5-chat-latest"):
     """Returns the number of tokens in a text string."""
     try:
         encoding = tiktoken.encoding_for_model(model)
@@ -16,7 +16,7 @@ def main():
     Main function to run the Streamlit chatbot application.
     This version includes a selectable conversation buffer to manage token usage.
     """
-    st.title("🤖 GPT-4o Chatbot with Memory Buffer")
+    st.title("🤖 GPT-5 Chatbot with Memory Buffer")
     st.write("I'm a streaming chatbot with a configurable memory buffer.")
 
     # --- Sidebar for API Key and Buffer Configuration ---
