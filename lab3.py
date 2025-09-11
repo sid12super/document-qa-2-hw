@@ -44,7 +44,7 @@ def main():
 
     # --- Handle New User Input ---
     # The chat_input widget is always visible at the bottom of the screen.
-    if prompt := st.chat_input("What is up?"):
+    if prompt := st.chat_input("Say something"):
         
         # 1. Add user's message to the chat history and display it.
         st.session_state.messages.append({"role": "user", "content": prompt})
