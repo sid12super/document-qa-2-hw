@@ -12,10 +12,8 @@ def main():
     # It's recommended to use Streamlit secrets for production apps.
     st.sidebar.header("Configuration")
     st.sidebar.info(
-        "For this app to work, you need to set your OpenAI API key in "
-        "Streamlit's secrets. Create a file at `.streamlit/secrets.toml` "
-        "and add your key like this:\n\n"
-        "`OPENAI_API_KEY = \"sk-...\"`"
+        "For this app to work, you need to set your API key in "
+        "the secrets file"
     )
 
     # --- Retrieve API Key and Initialize Client ---
