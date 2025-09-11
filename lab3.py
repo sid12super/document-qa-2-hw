@@ -1,138 +1,79 @@
 import streamlit as st
-import os
-import requests
-from bs4 import BeautifulSoup
-
-# --- Import SDKs for the different LLMs ---
 from openai import OpenAI
-import google.generativeai as genai
-import anthropic
-
-def read_url_content(url):
-    """Fetches and returns the text content of a given URL."""
-    try:
-        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, 'html.parser')
-        for script_or_style in soup(["script", "style"]):
-            script_or_style.decompose()
-        return soup.get_text(separator='\n', strip=True)
-    except requests.RequestException as e:
-        st.error(f"Error fetching URL: {e}")
-        return None
 
 def main():
-    st.title("🌐 Multi-LLM URL Summarizer")
-    st.write("Enter a URL to compare summaries from different AI models!")
+    """
+    Main function to run the Streamlit chatbot application.
+    """
+    st.title("🤖 GPT-4o Chatbot")
+    st.write("Ask me anything! I'm powered by OpenAI's gpt-4o model.")
 
-    # --- Sidebar for all user options ---
+    # --- Sidebar for API Key Configuration ---
+    # It's recommended to use Streamlit secrets for production apps.
     st.sidebar.header("Configuration")
-
-    llm_provider = st.sidebar.selectbox(
-        "Choose LLM Provider:",
-        ("OpenAI", "Google Gemini", "Anthropic Claude")
+    st.sidebar.info(
+        "For this app to work, you need to set your OpenAI API key in "
+        "Streamlit's secrets. Create a file at `.streamlit/secrets.toml` "
+        "and add your key like this:\n\n"
+        "`OPENAI_API_KEY = \"sk-...\"`"
     )
 
-    # --- Checkbox for advanced models ---
-    use_advanced = st.sidebar.checkbox("Use advanced model")
-
-    api_key = None
-    models_available = []
-    advanced_model = None
-
-    if llm_provider == "OpenAI":
-        models_available = ["gpt-5-mini", "gpt-5-nano"]
-        advanced_model = "gpt-5-chat-latest"
+    # --- Retrieve API Key and Initialize Client ---
+    try:
         api_key = st.secrets.get("OPENAI_API_KEY")
         if not api_key:
-            st.error("OpenAI API key not found. Please set it in .streamlit/secrets.toml")
+            st.error("OpenAI API key not found. Please follow the instructions in the sidebar.")
             st.stop()
+        
+        client = OpenAI(api_key=api_key)
+    except Exception as e:
+        st.error(f"Failed to initialize OpenAI client: {e}")
+        st.stop()
 
-    elif llm_provider == "Google Gemini":
-        models_available = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
-        advanced_model = "gemini-2.5-pro"
-        api_key = st.secrets.get("GOOGLE_API_KEY")
-        if not api_key:
-            st.error("Google API key not found. Please set it in .streamlit/secrets.toml")
-            st.stop()
-        genai.configure(api_key=api_key)
 
-    elif llm_provider == "Anthropic Claude":
-        models_available = ["claude-3-5-haiku-20241022", "claude-sonnet-4-20250514"]
-        advanced_model = "claude-opus-4-20250514"
-        api_key = st.secrets.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            st.error("Anthropic API key not found. Please set it in .streamlit/secrets.toml")
-            st.stop()
+    # --- Initialize Chat History ---
+    # The session_state is a Streamlit feature that preserves state across reruns.
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-    # --- Decide model based on checkbox ---
-    if use_advanced:
-        model = advanced_model
-    else:
-        model = st.sidebar.selectbox("Choose the model:", options=models_available)
+    # --- Display Existing Chat Messages ---
+    # Loop through the messages stored in the session state and display them.
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    summary_type = st.sidebar.radio(
-        "Choose summary style:",
-        ("100 words", "2 paragraphs", "5 bullet points")
-    )
-    language = st.sidebar.selectbox(
-        "Choose the output language:",
-        options=["English", "French", "Spanish", "German"]
-    )
+    # --- Handle New User Input ---
+    # The chat_input widget is always visible at the bottom of the screen.
+    if prompt := st.chat_input("What is up?"):
+        
+        # 1. Add user's message to the chat history and display it.
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-    url = st.text_input("Enter the URL to summarize:", placeholder="https://example.com")
+        # 2. Get the assistant's response.
+        try:
+            with st.spinner("Thinking..."):
+                # Create the API call to OpenAI
+                stream = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": m["role"], "content": m["content"]}
+                        for m in st.session_state.messages
+                    ],
+                    stream=True,
+                )
+                
+                # Use write_stream to display the response incrementally
+                with st.chat_message("assistant"):
+                    response = st.write_stream(stream)
 
-    if st.button(f"Generate Summary with {llm_provider}"):
-        if not url:
-            st.warning("Please enter a URL to generate a summary.")
-            st.stop()
+            # 3. Add the complete assistant's response to the chat history.
+            st.session_state.messages.append({"role": "assistant", "content": response})
+        
+        except Exception as e:
+            st.error(f"An error occurred while communicating with the OpenAI API: {e}")
 
-        with st.spinner("Fetching content from URL..."):
-            document = read_url_content(url)
-
-        if not document:
-            st.error("Could not retrieve content from the URL.")
-            st.stop()
-
-        if summary_type == "100 words":
-            instruction = "Summarize the document in about 100 words."
-        elif summary_type == "2 paragraphs":
-            instruction = "Summarize the document in exactly 2 connecting paragraphs."
-        else:
-            instruction = "Summarize the document in 5 concise bullet points."
-
-        prompt = f"Here’s content from a URL: {document}\n\n---\n\n{instruction}. Please provide the summary in {language}."
-
-        with st.spinner(f"Generating summary with {model}..."):
-            try:
-                summary = ""
-                if llm_provider == "OpenAI":
-                    client = OpenAI(api_key=api_key)
-                    response = client.chat.completions.create(
-                        model=model,
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    summary = response.choices[0].message.content
-
-                elif llm_provider == "Google Gemini":
-                    model_instance = genai.GenerativeModel(model)
-                    response = model_instance.generate_content(prompt)
-                    summary = response.text
-
-                elif llm_provider == "Anthropic Claude":
-                    client = anthropic.Anthropic(api_key=api_key)
-                    response = client.messages.create(
-                        model=model,
-                        max_tokens=1024,
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    summary = response.content[0].text
-
-                st.subheader(f"Summary from {llm_provider} ({model})")
-                st.write(summary)
-
-            except Exception as e:
-                st.error(f"An error occurred with the {llm_provider} API: {e}")
 
 if __name__ == "__main__":
     main()
