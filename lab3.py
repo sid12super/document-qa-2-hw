@@ -2,7 +2,7 @@ import streamlit as st
 from openai import OpenAI
 import tiktoken
 
-def get_token_count(text, model="gpt-5-chat-latest"):
+def get_token_count(text, model="gpt-4o"):
     """Returns the number of tokens in a text string."""
     try:
         encoding = tiktoken.encoding_for_model(model)
@@ -14,16 +14,17 @@ def get_token_count(text, model="gpt-5-chat-latest"):
 def main():
     """
     Main function to run the Streamlit chatbot application.
-    This version includes a selectable conversation buffer to manage token usage.
+    This version includes an interactive follow-up question and a larger default buffer.
     """
-    st.title("🤖 GPT-5 Chatbot")
-    st.write("I'm a streaming chatbot with a configurable memory buffer.")
+    st.title("🤖 Interactive GPT-4o Chatbot")
+    st.write("I'm a streaming chatbot with configurable memory and an interactive Q&A flow.")
 
-    # --- Sidebar for API Key and Buffer Configuration ---
+    # --- Sidebar Configuration ---
     st.sidebar.header("Configuration")
     st.sidebar.info(
-        "For this app to work, you need to set your OpenAI API key in "
-        "Streamlit's secrets. "
+        "For this app to work, set your OpenAI API key in Streamlit's secrets: "
+        "`.streamlit/secrets.toml`\n\n"
+        "`OPENAI_API_KEY = \"sk-...\"`"
     )
 
     st.sidebar.header("Buffer Settings")
@@ -36,76 +37,105 @@ def main():
     if buffer_type == "Token Limit":
         max_tokens = st.sidebar.number_input(
             "Max tokens for buffer:",
-            min_value=100,
-            max_value=2000,
-            value=1000,
-            step=100
+            min_value=100, max_value=4000, value=1000, step=100
         )
 
-    # --- Retrieve API Key and Initialize Client ---
+    # --- Initialize API Client ---
     try:
         api_key = st.secrets.get("OPENAI_API_KEY")
         if not api_key:
-            st.error("OpenAI API key not found. Please follow the instructions in the sidebar.")
+            st.error("OpenAI API key not found. Please follow instructions in the sidebar.")
             st.stop()
-        
         client = OpenAI(api_key=api_key)
     except Exception as e:
         st.error(f"Failed to initialize OpenAI client: {e}")
         st.stop()
 
-    # --- Initialize Chat History ---
+    # --- Initialize Session State ---
     if "messages" not in st.session_state:
         st.session_state.messages = []
+    # 'last_question' will store the prompt for which we might ask for more info.
+    if "last_question" not in st.session_state:
+        st.session_state.last_question = None
 
-    # --- Display Existing Chat Messages ---
+    # --- Display Chat History ---
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
     # --- Handle New User Input ---
     if prompt := st.chat_input("What would you like to ask?"):
-        
+        # Append and display the user's message immediately.
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        try:
-            with st.spinner("Thinking..."):
-                
-                # --- Create the conversation buffer based on sidebar selection ---
-                messages_to_send = []
-                if buffer_type == "Token Limit":
-                    current_tokens = 0
-                    # Iterate through messages in reverse to get the most recent ones
-                    for msg in reversed(st.session_state.messages):
-                        msg_tokens = get_token_count(msg["content"])
-                        if current_tokens + msg_tokens <= max_tokens:
-                            messages_to_send.insert(0, msg) # Insert at the beginning
-                            current_tokens += msg_tokens
-                        else:
-                            break # Stop when we exceed the token limit
-                else: # Default to Message Count buffer
-                    messages_to_send = st.session_state.messages[-4:]
-
-                # Create the API call to OpenAI using the selected buffer
-                stream = client.chat.completions.create(
-                    model="gpt-5-chat-latest",
-                    messages=[
-                        {"role": m["role"], "content": m["content"]}
-                        for m in messages_to_send
-                    ],
-                    stream=True,
-                )
-                
-                with st.chat_message("assistant"):
-                    response = st.write_stream(stream)
-
-            st.session_state.messages.append({"role": "assistant", "content": response})
+        # --- Core Logic for Interactive Follow-up ---
         
-        except Exception as e:
-            st.error(f"An error occurred while communicating with the OpenAI API: {e}")
+        # Check if the user is responding "yes" to the follow-up question.
+        is_yes_response = st.session_state.last_question and prompt.lower().strip() in ['yes', 'yep', 'sure', 'ok', 'okay', 'please do']
+        # Check if the user is responding "no".
+        is_no_response = st.session_state.last_question and prompt.lower().strip() in ['no', 'nope', 'nah', 'no thanks']
 
+        if is_no_response:
+            # If "no", reset the state and provide a polite closing.
+            st.session_state.last_question = None
+            response_text = "Alright. What else can I help you with?"
+            st.session_state.messages.append({"role": "assistant", "content": response_text})
+            with st.chat_message("assistant"):
+                st.markdown(response_text)
+        else:
+            # For a new question or a "yes" response, we call the LLM.
+            try:
+                with st.spinner("Thinking..."):
+                    
+                    # If user said "yes", formulate a new prompt asking for more detail.
+                    if is_yes_response:
+                        api_prompt = f"Please provide more detailed information about: '{st.session_state.last_question}'"
+                    else:
+                        # Otherwise, it's a new question.
+                        api_prompt = prompt
+
+                    # --- Create the Conversation Buffer ---
+                    messages_to_send = []
+                    if buffer_type == "Token Limit":
+                        current_tokens = 0
+                        for msg in reversed(st.session_state.messages):
+                            msg_tokens = get_token_count(msg["content"])
+                            if current_tokens + msg_tokens <= max_tokens:
+                                messages_to_send.insert(0, msg)
+                                current_tokens += msg_tokens
+                            else:
+                                break
+                    else:  # Default to Message Count buffer (now larger)
+                        messages_to_send = st.session_state.messages[-20:]
+
+                    # Add the potentially modified prompt for the API call
+                    messages_for_api = messages_to_send[:-1] + [{"role": "user", "content": api_prompt}]
+
+                    # --- API Call ---
+                    stream = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=messages_for_api,
+                        stream=True,
+                    )
+                    
+                    with st.chat_message("assistant"):
+                        response_stream = st.write_stream(stream)
+                    
+                    # After getting a response, ask the follow-up question.
+                    final_response = response_stream + "\n\n**DO YOU WANT MORE INFO?**"
+                    st.session_state.messages.append({"role": "assistant", "content": final_response})
+                    
+                    # Update the last message displayed on screen to include the follow-up.
+                    st.rerun()
+
+                # Store the original prompt that led to this follow-up.
+                st.session_state.last_question = st.session_state.last_question if is_yes_response else prompt
+
+            except Exception as e:
+                st.error(f"An error occurred with the OpenAI API: {e}")
 
 if __name__ == "__main__":
     main()
+
