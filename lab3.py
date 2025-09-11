@@ -16,7 +16,7 @@ def main():
     Main function to run the Streamlit chatbot application.
     This version includes a selectable conversation buffer to manage token usage.
     """
-    st.title("🤖 GPT-5 Chatbot with Memory Buffer")
+    st.title("🤖 GPT-5 Chatbot")
     st.write("I'm a streaming chatbot with a configurable memory buffer.")
 
     # --- Sidebar for API Key and Buffer Configuration ---
