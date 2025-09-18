@@ -60,6 +60,9 @@ def main():
     pdf_files = [file for file in os.listdir(pdf_file_path) if file.endswith(".pdf")]
     selected_pdf = st.sidebar.selectbox("Select a PDF file", pdf_files)
 
+    topic = st.sidebar.selectbox("Topic",
+                           ("Text Mining", "GenAI"))
+
     # --- Model Configuration ---
     st.sidebar.header("Model Configuration")
     llm_provider = st.sidebar.selectbox(
@@ -102,6 +105,28 @@ def main():
         # --- Add document to ChromaDB collection ---
         add_to_collection(collection, content, selected_pdf)
 
+        # --- Query ChromaDB collection ---
+        openai_client = st.session_state.openai_client
+        response = openai_client.embeddings.create(
+            input=topic,
+            model="text-embedding-3-small"
+        )
+
+        # Get the embedding
+        query_embedding = response.data[0].embedding
+
+        # Get the text relating to this question (this prompt)
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=3 # Number of closest documents to return
+        )
+
+        # Print the results with IDs using an index
+        for i in range(len(results['documents'][0])):
+            doc = results['documents'][0][i]
+            doc_id = results['ids'][0][i]
+            st.write(f"The following file/syllabus might be helpful: {doc_id}")
+
         # --- Build conversation buffer ---
         history = st.session_state.messages[:-1]
         history_buffer = []
@@ -138,12 +163,11 @@ def main():
                 full_response_content = ""
 
                 client = st.session_state.openai_client
-                stream = client.chat.completions.create(model="text-embedding-3-small", messages=final_messages_for_api, stream=True)
-                for chunk in stream:
-                    if chunk.choices[0].delta.content is not None:
-                        full_response_content += chunk.choices[0].delta.content
-                        message_placeholder.markdown(full_response_content + "▌")
-
+                response = client.chat.completions.create(
+                    input=final_messages_for_api,
+                    model="text-embedding-3-small"
+                )
+                full_response_content = response.choices[0].text
                 message_placeholder.markdown(full_response_content)
 
             st.session_state.messages.append({"role": "assistant", "content": full_response_content})
@@ -154,8 +178,11 @@ def main():
                     conversation_for_summary = st.session_state.messages
 
                     client = st.session_state.openai_client
-                    response = client.chat.completions.create(model="text-embedding-3-small", messages=[{"role": "system", "content": summary_prompt}, *conversation_for_summary])
-                    st.session_state.conversation_summary = response.choices[0].message.content
+                    response = client.chat.completions.create(
+                        input=[{"role": "system", "content": summary_prompt}, *conversation_for_summary],
+                        model="text-embedding-3-small"
+                    )
+                    st.session_state.conversation_summary = response.choices[0].text
 
         except Exception as e:
             st.error(f"An error occurred: {e}")
