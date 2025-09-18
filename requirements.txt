@@ -1,8 +1,11 @@
 streamlit
-pypdf
+pypdf2
 openai
 requests
 beautifulsoup4
 google-generativeai
 anthropic
 tiktoken
+chromadb
+langchain
+protobuf==3.20
