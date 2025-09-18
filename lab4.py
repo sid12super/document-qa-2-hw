@@ -23,11 +23,7 @@ def add_to_collection(collection, text, filename):
         model="text-embedding-3-small"
     )
     embedding = response.data[0].embedding
-    collection.add(
-        documents=[text],
-        ids=[filename],
-        embeddings=[embedding]
-    )
+    collection.add(documents=[text], ids=[filename], embeddings=[embedding])
 
 def extract_text_from_pdf(file_path):
     """Extracts all text from a given PDF file."""
@@ -49,25 +45,34 @@ def main():
             st.error(f"Failed to initialize OpenAI client. Check your API key. Error: {e}")
             st.stop()
 
-    st.title("📄 RAG-Powered Document Chat")
-    st.write("Ask questions about the content of your uploaded PDFs.")
+    st.title("📄 AI Chat Application")
+    st.write("Switch between chatting with your documents (RAG) or having a general conversation.")
 
     # --- Sidebar Configuration ---
-    st.sidebar.header("Document Selection")
-    pdf_dir_path = "src"
-    if not os.path.isdir(pdf_dir_path):
-        st.sidebar.error(f"Directory '{pdf_dir_path}' not found. Please create it and add PDFs.")
-        st.stop()
-        
-    pdf_files = [f for f in os.listdir(pdf_dir_path) if f.endswith(".pdf")]
-    if not pdf_files:
-        st.sidebar.warning("No PDF files found in the 'src' directory.")
-        st.stop()
-        
-    selected_pdf = st.sidebar.selectbox("Select a PDF file to chat with:", pdf_files)
+    st.sidebar.header("Settings")
+    
+    ### --- KEY CHANGE: Chat Mode Selector --- ###
+    chat_mode = st.sidebar.radio(
+        "Choose your chat mode:",
+        ("Document Q&A (RAG)", "General Chat")
+    )
 
-    ### --- KEY CHANGE: Memory Settings Removed --- ###
-    # The UI and logic for memory have been removed to focus on prompt engineering.
+    # Document selection is only needed for RAG mode
+    if chat_mode == "Document Q&A (RAG)":
+        st.sidebar.subheader("Document Selection")
+        pdf_dir_path = "src"
+        if not os.path.isdir(pdf_dir_path):
+            st.sidebar.error(f"Directory '{pdf_dir_path}' not found.")
+            st.stop()
+        
+        pdf_files = [f for f in os.listdir(pdf_dir_path) if f.endswith(".pdf")]
+        if not pdf_files:
+            st.sidebar.warning("No PDF files found in the 'src' directory.")
+            st.stop()
+            
+        selected_pdf = st.sidebar.selectbox("Select a PDF file to chat with:", pdf_files)
+    else:
+        selected_pdf = None
 
     # Initialize session state for displaying chat history
     if "messages" not in st.session_state:
@@ -78,82 +83,73 @@ def main():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Handle new user input
-    if prompt := st.chat_input(f"Ask a question about {selected_pdf}..."):
+    # --- Handle New User Input based on Chat Mode ---
+    if prompt := st.chat_input("Ask your question..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # 1. RETRIEVE: Fetch relevant context using RAG
-        with st.spinner("Analyzing document and finding relevant info..."):
-            full_pdf_path = os.path.join(pdf_dir_path, selected_pdf)
-            pdf_text = extract_text_from_pdf(full_pdf_path)
-            
-            if pdf_text:
-                add_to_collection(collection, pdf_text, selected_pdf)
-
-                openai_client = st.session_state.openai_client
-                query_response = openai_client.embeddings.create(
-                    input=prompt,
-                    model="text-embedding-3-small"
-                )
-                query_embedding = query_response.data[0].embedding
-
-                results = collection.query(query_embeddings=[query_embedding], n_results=1)
+        # --- Mode 1: Document Q&A (RAG) ---
+        if chat_mode == "Document Q&A (RAG)":
+            with st.spinner("Analyzing document and finding relevant info..."):
+                full_pdf_path = os.path.join(pdf_dir_path, selected_pdf)
+                pdf_text = extract_text_from_pdf(full_pdf_path)
                 
-                if results['documents'] and results['documents'][0]:
-                    retrieved_context = results['documents'][0][0]
+                if pdf_text:
+                    add_to_collection(collection, pdf_text, selected_pdf)
+                    
+                    openai_client = st.session_state.openai_client
+                    query_response = openai_client.embeddings.create(
+                        input=prompt, model="text-embedding-3-small"
+                    )
+                    query_embedding = query_response.data[0].embedding
+                    results = collection.query(query_embeddings=[query_embedding], n_results=1)
+                    
+                    retrieved_context = results['documents'][0][0] if results['documents'] and results['documents'][0] else "No relevant content found."
                 else:
-                    retrieved_context = "No relevant content found in the document for your question."
-            else:
-                retrieved_context = "Could not extract text from the PDF."
+                    retrieved_context = "Could not extract text from the PDF."
 
-        # 2. AUGMENT: Engineer the prompt with the retrieved context
-        ### --- KEY CHANGE: Prompt Engineering --- ###
-        # The system prompt now explicitly instructs the bot on how to behave.
-        system_prompt_text = f"""
-        You are an expert assistant who answers questions based on a provided document.
-        Your task is to answer the user's question using ONLY the information from the 'CONTEXT FROM DOCUMENT' below.
-        
-        Instructions:
-        1. When you use information from the context, you MUST explicitly state it. For example, start your answer with "According to the document..." or "Based on the information in '{selected_pdf}'...".
-        2. If the answer is not found in the context, you MUST respond with "I'm sorry, but the answer to your question could not be found in the provided document."
-        3. Do not use any of your own prior knowledge. Stick strictly to the context.
-        """
-        
-        # The user's prompt is combined with the context for the LLM.
-        final_prompt_for_api = f"""
-        CONTEXT FROM DOCUMENT '{selected_pdf}':
-        ---
-        {retrieved_context}
-        ---
+            system_prompt_text = f"""
+            You are an expert assistant. Answer the user's question using ONLY the context below.
+            - If you use the context, start with "According to the document...".
+            - If the answer isn't in the context, say so clearly.
+            - Do not use any prior knowledge.
+            """
+            
+            final_prompt_for_api = f"CONTEXT FROM '{selected_pdf}':\n{retrieved_context}\n\nUSER'S QUESTION: {prompt}"
+            
+            messages_for_api = [
+                {"role": "system", "content": system_prompt_text},
+                {"role": "user", "content": final_prompt_for_api}
+            ]
 
-        USER'S QUESTION: {prompt}
-        """
+        # --- Mode 2: General Chat ---
+        else:
+            with st.spinner("Thinking..."):
+                system_prompt_text = "You are a helpful and friendly AI assistant. Answer the user's questions conversationally."
+                # For general chat, we include the conversation history
+                messages_for_api = [{"role": "system", "content": system_prompt_text}] + st.session_state.messages
 
-        # 3. GENERATE: Send the engineered prompt to the LLM
+        # --- Unified API Call and Response Handling ---
         try:
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 client = st.session_state.openai_client
                 
-                ### --- KEY CHANGE: Updated LLM and Simplified API Call --- ###
                 response = client.chat.completions.create(
-                    model="gpt-4o-mini",  # Using a powerful, modern model
-                    messages=[
-                        {"role": "system", "content": system_prompt_text},
-                        {"role": "user", "content": final_prompt_for_api}
-                    ],
+                    model="gpt-4o",
+                    messages=messages_for_api,
                     max_tokens=2048,
-                    temperature=0.3 # Lower temperature for more factual, less creative answers
+                    temperature=0.7 
                 )
                 full_response_content = response.choices[0].message.content
                 message_placeholder.markdown(full_response_content)
-
+                
+                # Add assistant's response to the end of the message list
                 st.session_state.messages.append({"role": "assistant", "content": full_response_content})
 
         except Exception as e:
-            st.error(f"An error occurred with the AI provider: {e}")
+            st.error(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     main()
