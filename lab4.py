@@ -1,11 +1,12 @@
 import streamlit as st
 from openai import OpenAI
+__import__('pysqlite3')
+import sys
+sys.modules["sqlite3"]= sys.modules.pop("pysqlite3")
 import chromadb
 from chromadb.config import Settings
 from chromadb.api import EmbeddingFunction
 import pysqlite3
-import sqlite3
-from sqlite3 import Error
 import pandas as pd
 import numpy as np
 from PIL import Image
@@ -81,7 +82,6 @@ def main():
     pdf_file_path = os.path.join(os.getcwd(), "src")
     pdf_files = [file for file in os.listdir(pdf_file_path) if file.endswith(".pdf")]
     selected_pdf = st.sidebar.selectbox("Select a PDF file", pdf_files)
-    selected_pdf_path = os.path.join(pdf_file_path, selected_pdf)
 
     # --- Model Configuration ---
     st.sidebar.header("Model Configuration")
@@ -118,7 +118,7 @@ def main():
 
         # --- Fetch and process content from PDF ---
         with st.spinner("Fetching and processing content from PDF..."):
-            pdf_file_path = os.path.join(os.getcwd(), selected_pdf)
+            pdf_file_path = os.path.join(os.getcwd(), "src", selected_pdf)
             content = extract_text_from_pdf(pdf_file_path)
             pdf_context = f"CONTENT FROM PDF:\n{content}"
 
