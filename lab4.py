@@ -165,7 +165,7 @@ def main():
 
                 client = st.session_state.openai_client
                 response = client.chat.completions.create(
-                    model="text-davinci-002",
+                    model="gpt-5-nano",
                     messages=final_messages_for_api,
                     max_tokens=2048
                 )
@@ -181,7 +181,7 @@ def main():
 
                         client = st.session_state.openai_client
                         response = client.chat.completions.create(
-                            model="text-davinci-002",
+                            model="gpt-5-nano",
                             messages=[{"role": "system", "content": summary_prompt}, *conversation_for_summary],
                             max_tokens=2048
                         )
