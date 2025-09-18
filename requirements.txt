@@ -8,6 +8,7 @@ anthropic
 tiktoken
 chromadb
 langchain
+pysqlite3-binary
 setuptools
 wheel
 protobuf
