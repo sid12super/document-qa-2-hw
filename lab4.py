@@ -187,8 +187,8 @@ def main():
                         )
                         st.session_state.conversation_summary = response.choices[0].message.content
 
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     main()
