@@ -167,7 +167,7 @@ def main():
                 response = client.chat.completions.create(
                     model="gpt-5-nano",
                     messages=final_messages_for_api,
-                    max_tokens=2048
+                    max_completion_tokens=2048
                 )
                 full_response_content = response.choices[0].message.content
                 message_placeholder.markdown(full_response_content)
@@ -183,7 +183,7 @@ def main():
                         response = client.chat.completions.create(
                             model="gpt-5-nano",
                             messages=[{"role": "system", "content": summary_prompt}, *conversation_for_summary],
-                            max_tokens=2048
+                            max_completion_tokens=2048
                         )
                         st.session_state.conversation_summary = response.choices[0].message.content
 
