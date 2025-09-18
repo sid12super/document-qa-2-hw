@@ -139,7 +139,7 @@ def main():
                 
                 ### --- KEY CHANGE: Updated LLM and Simplified API Call --- ###
                 response = client.chat.completions.create(
-                    model="gpt-4o",  # Using a powerful, modern model
+                    model="gpt-4o-mini",  # Using a powerful, modern model
                     messages=[
                         {"role": "system", "content": system_prompt_text},
                         {"role": "user", "content": final_prompt_for_api}
