@@ -11,7 +11,6 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 import chromadb
 
 # --- Global ChromaDB Initialization ---
-# The client is persistent, so it's efficient to initialize it once globally.
 chroma_db_path = "./ChromaDB_for_lab"
 chroma_client = chromadb.PersistentClient(chroma_db_path)
 collection = chroma_client.get_or_create_collection("Lab4Collection")
@@ -36,28 +35,24 @@ def extract_text_from_pdf(file_path):
         st.error(f"Error extracting text from PDF: {e}")
         return None
 
-### --- KEY CHANGE: New function for efficient, one-time processing --- ###
 def setup_document_collection(collection, pdf_file_path, pdf_filename):
     """
     Clears the collection and ingests a new document.
     This ensures we only process and embed each document once per selection.
     """
     with st.spinner(f"Processing and embedding '{pdf_filename}'... This happens only once per document."):
-        # 1. Clear any old documents from the collection
         count = collection.count()
         if count > 0:
             ids_to_delete = collection.get(limit=count)['ids']
             collection.delete(ids=ids_to_delete)
 
-        # 2. Extract text and add the new document
         text = extract_text_from_pdf(pdf_file_path)
         if text:
             add_to_collection(collection, text, pdf_filename)
-            st.session_state.processed_pdf = pdf_filename # Mark this PDF as processed
+            st.session_state.processed_pdf = pdf_filename
             st.success(f"'{pdf_filename}' is now ready for questions.", icon="✅")
         else:
             st.error("Failed to process the document.")
-
 
 # --- Main Application Logic ---
 def main():
@@ -91,8 +86,6 @@ def main():
             
         selected_pdf = st.sidebar.selectbox("Select a PDF file to chat with:", pdf_files)
 
-        ### --- KEY CHANGE: Check if the document needs to be processed --- ###
-        # This logic uses session_state to avoid re-embedding the same file.
         if "processed_pdf" not in st.session_state or st.session_state.processed_pdf != selected_pdf:
             full_pdf_path = os.path.join(pdf_dir_path, selected_pdf)
             setup_document_collection(collection, full_pdf_path, selected_pdf)
@@ -104,6 +97,7 @@ def main():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
+    # --- Main Chat Logic with Debugging ---
     if prompt := st.chat_input("Ask your question..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -111,29 +105,60 @@ def main():
 
         # --- Mode 1: Document Q&A (RAG) ---
         if chat_mode == "Document Q&A (RAG)":
+            st.write("--- DEBUG: RAG Mode Activated ---")
             with st.spinner("Searching for relevant information..."):
-                # The document is already embedded, so we just query it.
+                st.write("DEBUG: Creating embedding for the prompt...")
                 openai_client = st.session_state.openai_client
                 query_response = openai_client.embeddings.create(input=prompt, model="text-embedding-3-small")
                 query_embedding = query_response.data[0].embedding
+                st.write("DEBUG: Prompt embedding created successfully.")
+
+                st.write("DEBUG: Querying the vector database...")
                 results = collection.query(query_embeddings=[query_embedding], n_results=1)
+                st.write("DEBUG: Database query successful.")
                 
                 retrieved_context = results['documents'][0][0] if results.get('documents') and results['documents'][0] else "No relevant content found."
+                
+                st.write(f"DEBUG: Retrieved context size: {len(retrieved_context)} characters.")
 
-            system_prompt_text = "..." # Remainder of logic is the same
+                system_prompt_text = f"""
+                You are an expert assistant. Answer the user's question using ONLY the context below.
+                - If you use the context, start with "According to the document...".
+                - If the answer isn't in the context, say so clearly.
+                """
+                final_prompt_for_api = f"CONTEXT FROM DOCUMENT:\n{retrieved_context}\n\nUSER'S QUESTION: {prompt}"
+                
+                messages_for_api = [
+                    {"role": "system", "content": system_prompt_text},
+                    {"role": "user", "content": final_prompt_for_api}
+                ]
 
         # --- Mode 2: General Chat ---
         else:
-            # General chat logic remains the same
+            st.write("--- DEBUG: General Mode Activated ---")
             system_prompt_text = "You are a helpful AI assistant."
             messages_for_api = [{"role": "system", "content": system_prompt_text}] + st.session_state.messages
         
-        # (The unified API call logic remains the same as before)
+        # --- Unified API Call and Response Handling ---
         try:
-            client = st.session_state.openai_client
-            # ... API call ...
+            st.write("DEBUG: Calling the final LLM for a response...")
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                client = st.session_state.openai_client
+                
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=messages_for_api,
+                    max_tokens=2048,
+                )
+                full_response_content = response.choices[0].message.content
+                message_placeholder.markdown(full_response_content)
+                
+                st.session_state.messages.append({"role": "assistant", "content": full_response_content})
+                st.write("DEBUG: Process finished successfully!")
+
         except Exception as e:
-            st.error(f"An error occurred: {e}")
+            st.error(f"An error occurred during the final API call: {e}")
 
 if __name__ == "__main__":
     main()
