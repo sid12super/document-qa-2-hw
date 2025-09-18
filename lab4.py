@@ -118,7 +118,7 @@ def main():
                 full_response_content = ""
 
                 client = st.session_state.openai_client
-                stream = client.chat.completions.create(model="text-davinci-003", messages=final_messages_for_api, stream=True)
+                stream = client.chat.completions.create(model="text-embedding-3-small", messages=final_messages_for_api, stream=True)
                 for chunk in stream:
                     if chunk.choices[0].delta.content is not None:
                         full_response_content += chunk.choices[0].delta.content
