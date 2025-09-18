@@ -5,7 +5,7 @@ import sys
 sys.modules["sqlite3"]= sys.modules.pop("pysqlite3")
 import chromadb
 from chromadb.config import Settings
-from chromadb.api import EmbeddingFunction
+from chromadb.api import EmbeddingIndex, EmbeddingFunction
 import pysqlite3
 import pandas as pd
 import numpy as np
@@ -22,8 +22,8 @@ openai = OpenAI(api_key=openai_api_key)
 # Initialize ChromaDB
 def create_chromadb_collection():
     if "Lab4_vectorDB" not in st.session_state:
-        st.session_state.Lab4_vectorDB = chromadb.EmbeddingIndex(
-            embedding_function=chromadb.EmbeddingFunction(
+        st.session_state.Lab4_vectorDB = EmbeddingIndex(
+            embedding_function=EmbeddingFunction(
                 model_name="text-embedding-ada-002",
                 model_type="text",
                 openai_api_key=openai_api_key,
