@@ -1,38 +1,24 @@
 import streamlit as st
 from openai import OpenAI
+import os
+from PyPDF2 import PdfReader
+
+# Fix for working with ChromaDB and Streamlit
 __import__('pysqlite3')
 import sys
-sys.modules["sqlite3"]= sys.modules.pop("pysqlite3")
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 import chromadb
-from chromadb.config import Settings
-from chromadb.api import EmbeddingIndex, EmbeddingFunction
-import pysqlite3
-import pandas as pd
-import numpy as np
-from PIL import Image
-from io import BytesIO
-from PyPDF2 import PdfReader
-import os
-from typing import List, Dict
 
-# Initialize OpenAI API
-openai_api_key = st.secrets.get("OPENAI_API_KEY")
-openai = OpenAI(api_key=openai_api_key)
+# Initialize ChromaDB client
+chroma_db_path = "./ChromaDB_for_lab"
+chroma_client = chromadb.PersistentClient(chroma_db_path)
+collection = chroma_client.get_or_create_collection("Lab4Collection")
 
-# Initialize ChromaDB
-def create_chromadb_collection():
-    if "Lab4_vectorDB" not in st.session_state:
-        st.session_state.Lab4_vectorDB = EmbeddingIndex(
-            embedding_function=EmbeddingFunction(
-                model_name="text-embedding-ada-002",
-                model_type="text",
-                openai_api_key=openai_api_key,
-            ),
-        )
-        st.session_state.Lab4_vectorDB.create_collection("Lab4Collection")
-
-# Create ChromaDB collection
-create_chromadb_collection()
+# Initialize OpenAI client
+if 'openai_client' not in st.session_state:
+    api_key = st.secrets["OPENAI_API_KEY"]
+    st.session_state.openai_client = OpenAI(api_key=api_key)
 
 # Function to extract text from PDF
 def extract_text_from_pdf(file_path):
@@ -45,27 +31,6 @@ def extract_text_from_pdf(file_path):
     except Exception as e:
         st.error(f"Error extracting text from PDF: {e}")
         return None
-
-# Function to store documents in ChromaDB
-def store_documents_in_chromadb(documents: List[Dict]):
-    for document in documents:
-        text = document["text"]
-        metadata = document["metadata"]
-        vector = st.session_state.Lab4_vectorDB.get_embedding(text)
-        st.session_state.Lab4_vectorDB.add(
-            vectors=[vector],
-            metadata=[metadata],
-            ids=[document["id"]],
-        )
-
-# Function to get documents from ChromaDB
-def get_documents_from_chromadb(query: str):
-    query_vector = st.session_state.Lab4_vectorDB.get_embedding(query)
-    results = st.session_state.Lab4_vectorDB.query(
-        vectors=[query_vector],
-        k=10,
-    )
-    return results
 
 # Main application
 def main():
@@ -152,7 +117,7 @@ def main():
                 message_placeholder = st.empty()
                 full_response_content = ""
 
-                client = openai
+                client = st.session_state.openai_client
                 stream = client.chat.completions.create(model="text-davinci-003", messages=final_messages_for_api, stream=True)
                 for chunk in stream:
                     if chunk.choices[0].delta.content is not None:
@@ -168,7 +133,7 @@ def main():
                     summary_prompt = "Please create a concise summary of the following conversation for your own memory."
                     conversation_for_summary = st.session_state.messages
 
-                    client = openai
+                    client = st.session_state.openai_client
                     response = client.chat.completions.create(model="text-davinci-003", messages=[{"role": "system", "content": summary_prompt}, *conversation_for_summary])
                     st.session_state.conversation_summary = response.choices[0].message.content
 
