@@ -1,5 +1,5 @@
 streamlit
-pypdf2
+PyPDF2
 openai
 requests
 beautifulsoup4
