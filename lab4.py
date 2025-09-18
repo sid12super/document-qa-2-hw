@@ -138,7 +138,7 @@ def main():
                 full_response_content = ""
 
                 client = st.session_state.openai_client
-                stream = client.chat.completions.create(model="text-davinci-002", messages=final_messages_for_api, stream=True)
+                stream = client.chat.completions.create(model="text-embedding-3-small", messages=final_messages_for_api, stream=True)
                 for chunk in stream:
                     if chunk.choices[0].delta.content is not None:
                         full_response_content += chunk.choices[0].delta.content
@@ -154,7 +154,7 @@ def main():
                     conversation_for_summary = st.session_state.messages
 
                     client = st.session_state.openai_client
-                    response = client.chat.completions.create(model="text-davinci-002", messages=[{"role": "system", "content": summary_prompt}, *conversation_for_summary])
+                    response = client.chat.completions.create(model="text-embedding-3-small", messages=[{"role": "system", "content": summary_prompt}, *conversation_for_summary])
                     st.session_state.conversation_summary = response.choices[0].message.content
 
         except Exception as e:
