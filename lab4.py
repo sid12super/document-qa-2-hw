@@ -15,12 +15,29 @@ chroma_db_path = "./ChromaDB_for_lab"
 chroma_client = chromadb.PersistentClient(chroma_db_path)
 collection = chroma_client.get_or_create_collection("Lab4Collection")
 
-# Initialize OpenAI client
+# Create an OpenAI client.
 if 'openai_client' not in st.session_state:
     api_key = st.secrets["OPENAI_API_KEY"]
     st.session_state.openai_client = OpenAI(api_key=api_key)
 
-# Function to extract text from PDF
+def add_to_collection(collection, text, filename):
+    # Create an embedding
+    openai_client = st.session_state.openai_client
+    response = openai_client.embeddings.create(
+        input=text,
+        model="text-embedding-3-small"
+    )
+
+    # Get the embedding
+    embedding = response.data[0].embedding
+
+    # Add embedding and document to ChromaDB
+    collection.add(
+        documents=[text],
+        ids = [filename],
+        embeddings=[embedding]
+    )
+
 def extract_text_from_pdf(file_path):
     try:
         pdf_reader = PdfReader(file_path)
@@ -82,6 +99,9 @@ def main():
             content = extract_text_from_pdf(pdf_file_path)
             pdf_context = f"CONTENT FROM PDF:\n{content}"
 
+        # --- Add document to ChromaDB collection ---
+        add_to_collection(collection, content, selected_pdf)
+
         # --- Build conversation buffer ---
         history = st.session_state.messages[:-1]
         history_buffer = []
@@ -118,7 +138,7 @@ def main():
                 full_response_content = ""
 
                 client = st.session_state.openai_client
-                stream = client.chat.completions.create(model="text-embedding-3-small", messages=final_messages_for_api, stream=True)
+                stream = client.chat.completions.create(model="text-davinci-002", messages=final_messages_for_api, stream=True)
                 for chunk in stream:
                     if chunk.choices[0].delta.content is not None:
                         full_response_content += chunk.choices[0].delta.content
@@ -134,7 +154,7 @@ def main():
                     conversation_for_summary = st.session_state.messages
 
                     client = st.session_state.openai_client
-                    response = client.chat.completions.create(model="text-davinci-003", messages=[{"role": "system", "content": summary_prompt}, *conversation_for_summary])
+                    response = client.chat.completions.create(model="text-davinci-002", messages=[{"role": "system", "content": summary_prompt}, *conversation_for_summary])
                     st.session_state.conversation_summary = response.choices[0].message.content
 
         except Exception as e:
