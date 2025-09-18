@@ -22,13 +22,8 @@ openai = OpenAI(api_key=openai_api_key)
 # Initialize ChromaDB
 def create_chromadb_collection():
     if "Lab4_vectorDB" not in st.session_state:
-        settings = Settings(
-            sql_dialect="sqlite",
-            sql_database="chromadb.db",
-        )
         st.session_state.Lab4_vectorDB = chromadb.EmbeddingIndex(
-            settings,
-            embedding_function=EmbeddingFunction(
+            embedding_function=chromadb.EmbeddingFunction(
                 model_name="text-embedding-ada-002",
                 model_type="text",
                 openai_api_key=openai_api_key,
