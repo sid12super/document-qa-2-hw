@@ -157,6 +157,7 @@ def main():
         final_messages_for_api.append({"role": "user", "content": f"CONTEXT:\n{pdf_context}\n\nQUESTION:\n{prompt}"})
 
         # --- API Call and Streaming Response ---
+        # --- API Call and Streaming Response ---
         try:
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
@@ -164,28 +165,30 @@ def main():
 
                 client = st.session_state.openai_client
                 response = client.chat.completions.create(
-                    input=final_messages_for_api,
-                    model="text-embedding-3-small"
+                    model="text-davinci-002",
+                    messages=final_messages_for_api,
+                    max_tokens=2048
                 )
-                full_response_content = response.choices[0].text
+                full_response_content = response.choices[0].message.content
                 message_placeholder.markdown(full_response_content)
 
-            st.session_state.messages.append({"role": "assistant", "content": full_response_content})
+                st.session_state.messages.append({"role": "assistant", "content": full_response_content})
 
-            if memory_type == "Conversation Summary" and st.secrets.get("OPENAI_API_KEY"):
-                with st.spinner("Creating conversation summary..."):
-                    summary_prompt = "Please create a concise summary of the following conversation for your own memory."
-                    conversation_for_summary = st.session_state.messages
+                if memory_type == "Conversation Summary" and st.secrets.get("OPENAI_API_KEY"):
+                    with st.spinner("Creating conversation summary..."):
+                        summary_prompt = "Please create a concise summary of the following conversation for your own memory."
+                        conversation_for_summary = st.session_state.messages
 
-                    client = st.session_state.openai_client
-                    response = client.chat.completions.create(
-                        input=[{"role": "system", "content": summary_prompt}, *conversation_for_summary],
-                        model="text-embedding-3-small"
-                    )
-                    st.session_state.conversation_summary = response.choices[0].text
+                        client = st.session_state.openai_client
+                        response = client.chat.completions.create(
+                            model="text-davinci-002",
+                            messages=[{"role": "system", "content": summary_prompt}, *conversation_for_summary],
+                            max_tokens=2048
+                        )
+                        st.session_state.conversation_summary = response.choices[0].message.content
 
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     main()
