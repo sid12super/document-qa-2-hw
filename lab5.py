@@ -6,15 +6,8 @@ import requests
 def get_current_weather(location: str, api_key: str) -> dict:
     """
     Fetches the current weather for a given location using the OpenWeatherMap API.
-
-    Args:
-        location (str): The name of the city (e.g., "Syracuse" or "Syracuse, NY").
-        api_key (str): Your OpenWeatherMap API key.
-
-    Returns:
-        dict: A dictionary containing cleaned weather data or an error message.
     """
-    # Standardize the location input by taking the part before a comma
+    # Standardize the location input
     if "," in location:
         location = location.split(",")[0].strip()
 
@@ -25,53 +18,65 @@ def get_current_weather(location: str, api_key: str) -> dict:
     # Make the API call
     response = requests.get(request_url)
 
-    # Check if the request was successful (HTTP Status Code 200)
+    # Check for a successful response
     if response.status_code == 200:
         data = response.json()
-
-        # Extract relevant weather information
-        # Note: Temperatures are converted from Kelvin to Celsius
+        
+        # Extract and convert data from Kelvin to Celsius
         temp_celsius = data['main']['temp'] - 273.15
         feels_like_celsius = data['main']['feels_like'] - 273.15
-        temp_min_celsius = data['main']['temp_min'] - 273.15
-        temp_max_celsius = data['main']['temp_max'] - 273.15
-        humidity = data['main']['humidity']
         description = data['weather'][0]['description']
+        humidity = data['main']['humidity']
 
-        # Structure and return the final weather data
         weather_data = {
             "location": location.capitalize(),
             "temperature_celsius": round(temp_celsius, 2),
             "feels_like_celsius": round(feels_like_celsius, 2),
-            "temp_min_celsius": round(temp_min_celsius, 2),
-            "temp_max_celsius": round(temp_max_celsius, 2),
             "humidity_percent": humidity,
             "description": description.title()
         }
         return weather_data
     else:
-        # Return an error message if the API call failed
-        return {"error": f"API request failed with status code {response.status_code}", "details": response.json()}
+        # Return an error if the API call failed
+        return {"error": f"API request failed for location '{location}'.", "details": response.json()}
 
-# This block allows for direct testing of the script
+def main():
+    """
+    The main function to run the Streamlit page for Lab 5.
+    """
+    st.title("☀️ Lab 5: Live Weather Check")
+    
+    # User input for location
+    location_input = st.text_input("Enter a city name (e.g., Syracuse):", "Syracuse")
+
+    # Button to trigger the API call
+    if st.button("Get Current Weather"):
+        if not location_input:
+            st.warning("Please enter a location.")
+        else:
+            try:
+                # Get the API key from secrets
+                ow_api_key = st.secrets["OPENWEATHER_API_KEY"]
+                
+                # Show a spinner while fetching data
+                with st.spinner(f"Fetching weather for {location_input}..."):
+                    weather_info = get_current_weather(location_input, ow_api_key)
+                
+                # Display the results or an error
+                if "error" in weather_info:
+                    st.error(weather_info["error"])
+                    st.json(weather_info["details"]) # Show detailed error from API
+                else:
+                    st.success(f"Weather in {weather_info['location']}:")
+                    col1, col2 = st.columns(2)
+                    col1.metric("Temperature", f"{weather_info['temperature_celsius']} °C")
+                    col2.metric("Feels Like", f"{weather_info['feels_like_celsius']} °C")
+                    st.metric("Conditions", f"{weather_info['description']}")
+                    st.metric("Humidity", f"{weather_info['humidity_percent']}%")
+
+            except (KeyError, FileNotFoundError):
+                st.error("Error: OPENWEATHER_API_KEY not found in Streamlit secrets.")
+
+# This block allows for direct testing of the script (optional)
 if __name__ == "__main__":
-    # This part assumes you have your secrets.toml file configured
-    # and you run this script in an environment where Streamlit can access it.
-    try:
-        # Access the API key from Streamlit's secrets management
-        ow_api_key = st.secrets["OPENWEATHER_API_KEY"]
-        
-        # Define a test location
-        test_location = "Syracuse, NY"
-        
-        # Call the function to get weather data
-        weather_info = get_current_weather(test_location, ow_api_key)
-        
-        # Print the results
-        print(f"Weather information for {test_location}:")
-        for key, value in weather_info.items():
-            print(f"  {key.replace('_', ' ').title()}: {value}")
-            
-    except (KeyError, FileNotFoundError):
-        print("Error: Could not find OPENWEATHER_API_KEY in your Streamlit secrets.")
-        print("Please ensure your .streamlit/secrets.toml file is correctly configured.")
+    main()
