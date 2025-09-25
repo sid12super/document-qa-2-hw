@@ -76,7 +76,7 @@ def run_conversation(user_prompt: str, client: openai.OpenAI) -> str:
     ]
     
     response = client.chat.completions.create(
-        model="gpt-5-chat-latest", # Or any other suitable model
+        model="gpt-4o", # Or any other suitable model
         messages=messages,
         tools=tools,
         tool_choice="auto",
