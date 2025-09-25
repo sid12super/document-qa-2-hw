@@ -70,7 +70,7 @@ def run_openai_conversation(user_prompt: str, client: openai.OpenAI, tools: list
 ## Anthropic (Claude) Handler
 def run_anthropic_conversation(user_prompt: str, client: anthropic.Anthropic, tools: list, system_prompt: str) -> str:
     response = client.messages.create(
-        model="claude-3-5-sonnet-20240620",
+        model="claude-4-sonnet-20250514",
         max_tokens=1024,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
