@@ -94,7 +94,7 @@ def main():
         st.header("Configuration")
         selected_model = st.selectbox(
             "Choose an OpenAI Model",
-            ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
+            ["gpt-4o", "gpt-5-chat-latest", "gpt-5-nano"]
         )
 
     # --- Tool and System Prompt Definitions ---
