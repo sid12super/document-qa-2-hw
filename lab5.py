@@ -51,7 +51,7 @@ def get_current_weather(location: str, unit: str = "celsius") -> dict:
 def run_openai_conversation(user_prompt: str, client: openai.OpenAI, tools: list, system_prompt: str) -> str:
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
     
-    response = client.chat.completions.create(model="gpt-5-nao", messages=messages, tools=tools, tool_choice="auto")
+    response = client.chat.completions.create(model="gpt-5-nano", messages=messages, tools=tools, tool_choice="auto")
     response_message = response.choices[0].message
 
     if response_message.tool_calls:
