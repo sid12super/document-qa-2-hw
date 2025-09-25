@@ -3,6 +3,7 @@ import lab1  # Renamed from lab1
 import lab2  # Renamed from lab2
 import lab3
 import lab4  # Renamed from lab3
+import lab5  # Renamed from lab4
 
 def main():
     st.set_page_config(page_title="HW Manager", page_icon="📚")
@@ -17,7 +18,7 @@ def main():
         st.title("Welcome to the lab Manager")
         st.write(
             "This multi-page app allows you to explore different homework assignments. "
-            "Use the sidebar to navigate to 'lab1' or 'lab2' or 'lab3' or 'lab4'!"
+            "Use the sidebar to navigate to each lab."
         )
     elif page == "lab1":
         lab1.main()  # Call the `main` function from lab1.py
@@ -27,6 +28,8 @@ def main():
         lab3.main()  # Call the `main` function from lab3.py
     elif page == "lab4":
         lab4.main()  # Call the `main` function from lab4.py
+    elif page == "lab5":
+        lab5.main()  # Call the `main` function from lab5.py
 
 if __name__ == "__main__":
     main()
