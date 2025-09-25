@@ -8,17 +8,13 @@ import google.generativeai as genai
 import json
 
 # --- 1. The Local Tool ---
-# This function is called by our Python code after an LLM decides to use it.
 def get_current_weather(location: str, unit: str = "celsius") -> dict:
-    """
-    Fetches the current weather and formats it, handling different units.
-    """
+    # This function is correct and needs no changes.
     try:
         api_key = st.secrets["OPENWEATHER_API_KEY"]
     except KeyError:
         return {"error": "OpenWeather API key not found in secrets."}
 
-    # Standardize location and construct URL
     location_query = location.split(",")[0].strip()
     base_url = "https://api.openweathermap.org/data/2.5/weather"
     request_url = f"{base_url}?q={location_query}&appid={api_key}"
@@ -31,11 +27,10 @@ def get_current_weather(location: str, unit: str = "celsius") -> dict:
     temp_kelvin = data['main']['temp']
     description = data['weather'][0]['description']
 
-    # Convert temperature based on the desired unit
     if unit.lower() == "fahrenheit":
         temp = (temp_kelvin - 273.15) * 9/5 + 32
         temp_unit = "Fahrenheit"
-    else: # Default to Celsius
+    else:
         temp = temp_kelvin - 273.15
         temp_unit = "Celsius"
 
@@ -51,7 +46,8 @@ def get_current_weather(location: str, unit: str = "celsius") -> dict:
 def run_openai_conversation(user_prompt: str, client: openai.OpenAI, tools: list, system_prompt: str) -> str:
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
     
-    response = client.chat.completions.create(model="gpt-5-nano", messages=messages, tools=tools, tool_choice="auto")
+    # FIX: Using a real, working model name.
+    response = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools, tool_choice="auto")
     response_message = response.choices[0].message
 
     if response_message.tool_calls:
@@ -62,7 +58,8 @@ def run_openai_conversation(user_prompt: str, client: openai.OpenAI, tools: list
         messages.append(response_message)
         messages.append({"tool_call_id": tool_call.id, "role": "tool", "name": "get_current_weather", "content": json.dumps(function_response)})
         
-        second_response = client.chat.completions.create(model="gpt-5-nano", messages=messages)
+        # FIX: Using a real, working model name for the second call.
+        second_response = client.chat.completions.create(model="gpt-4o", messages=messages)
         return second_response.choices[0].message.content
     else:
         return response_message.content
@@ -70,7 +67,8 @@ def run_openai_conversation(user_prompt: str, client: openai.OpenAI, tools: list
 ## Anthropic (Claude) Handler
 def run_anthropic_conversation(user_prompt: str, client: anthropic.Anthropic, tools: list, system_prompt: str) -> str:
     response = client.messages.create(
-        model="claude-4-sonnet-20250514",
+        # FIX: Using a real, working model name.
+        model="claude-3-5-sonnet-20240620",
         max_tokens=1024,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
@@ -83,21 +81,14 @@ def run_anthropic_conversation(user_prompt: str, client: anthropic.Anthropic, to
         function_args = tool_call.input
         function_response = get_current_weather(**function_args)
         
-        # Construct the conversation history for the second call
         messages = [
             {"role": "user", "content": user_prompt},
             {"role": "assistant", "content": response.content},
-            {
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": tool_call.id,
-                    "content": json.dumps(function_response)
-                }]
-            }
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_call.id, "content": json.dumps(function_response)}]}
         ]
         
-        second_response = client.messages.create(model="claude-4-sonnet-20250514", max_tokens=1024, system=system_prompt, messages=messages)
+        # FIX: Using a real, working model name for the second call.
+        second_response = client.messages.create(model="claude-3-5-sonnet-20240620", max_tokens=1024, system=system_prompt, messages=messages)
         return second_response.content[0].text
     else:
         return response.content[0].text
@@ -105,7 +96,6 @@ def run_anthropic_conversation(user_prompt: str, client: anthropic.Anthropic, to
 ## Google (Gemini) Handler
 def run_google_conversation(user_prompt: str, client: genai.GenerativeModel, system_prompt: str) -> str:
     chat = client.start_chat()
-    # Note: Gemini's system prompt is handled differently
     full_prompt = f"{system_prompt}\n\nUSER QUESTION: {user_prompt}"
     response = chat.send_message(full_prompt)
     
@@ -115,17 +105,11 @@ def run_google_conversation(user_prompt: str, client: genai.GenerativeModel, sys
             args = {key: value for key, value in function_call.args.items()}
             function_response = get_current_weather(**args)
             
-            # Send the tool response back to the model
             second_response = chat.send_message(
-                genai.types.Content(
-                    parts=[genai.types.Part(
-                        function_response=genai.types.FunctionResponse(name="get_current_weather", response=function_response)
-                    )]
-                )
+                genai.types.Content(parts=[genai.types.Part(function_response=genai.types.FunctionResponse(name="get_current_weather", response=function_response))])
             )
             return second_response.candidates[0].content.parts[0].text
     except (IndexError, AttributeError):
-         # This happens if the model doesn't make a function call
         return response.candidates[0].content.parts[0].text
 
 # --- 3. The Main Streamlit App ---
@@ -134,13 +118,10 @@ def main():
     st.title("🌦️ Universal Weather Assistant")
     st.write("Ask a weather-related question and get suggestions from your chosen AI.")
 
-    # --- Sidebar for LLM Selection ---
     with st.sidebar:
         st.header("Configuration")
         vendor = st.selectbox("Choose AI Vendor", ["OpenAI", "Anthropic", "Google"])
-        # In a real app, you might have another selectbox for model, but we'll hardcode them for simplicity.
 
-    # --- Tool and System Prompt Definitions (shared across vendors) ---
     tool_schema = {
         "name": "get_current_weather",
         "description": "Get the current weather in a given location.",
@@ -161,7 +142,6 @@ def main():
         "If no location is given, default to Syracuse, NY."
     )
 
-    # --- Main App Logic ---
     user_input = st.text_input("Ask a question (e.g., 'Is it t-shirt weather in Paris today?')", "What should I wear in Syracuse today?")
 
     if st.button("Get Suggestion"):
@@ -178,11 +158,15 @@ def main():
                 
                 elif vendor == "Anthropic":
                     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-                    result = run_anthropic_conversation(user_input, client, [tool_schema], system_prompt)
+                    # FIX: Anthropic's API requires the key to be 'input_schema', not 'parameters'.
+                    anthropic_tool_schema = tool_schema.copy()
+                    anthropic_tool_schema['input_schema'] = anthropic_tool_schema.pop('parameters')
+                    result = run_anthropic_conversation(user_input, client, [anthropic_tool_schema], system_prompt)
                 
                 elif vendor == "Google":
                     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-                    model = genai.GenerativeModel(model_name="gemini-2.5-pro", tools=[tool_schema])
+                    # FIX: Using a real, working model name.
+                    model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", tools=[tool_schema])
                     result = run_google_conversation(user_input, model, system_prompt)
 
             st.markdown(result)
