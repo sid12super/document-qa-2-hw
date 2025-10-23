@@ -43,14 +43,14 @@ def fact_check_claim(user_claim: str):
     """
     
     try:
-        # [cite_start]Use client.responses.create [cite: 15, 18]
+        # Use client.responses.create
         response = client.responses.create(
             model="gpt-4.1", # As specified in the lab instructions 
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_claim}
             ],
-            # [cite_start]Use the web_search tool [cite: 16, 18]
+            # Use the web_search tool
             tools=[{"type": "web_search"}],
             
             # Use format="json" as shown in the lab example 
@@ -77,28 +77,28 @@ def main():
         st.stop()
 
     # Page Title (Lab 6a)
-    [cite_start]st.title("🤖 AI Fact-Checker + Citation Builder") # [cite: 7, 21]
+    st.title("🤖 AI Fact-Checker + Citation Builder")
     st.markdown("---")
 
     # Input section (Lab 6a)
     user_claim = st.text_input("Enter a factual claim to verify:", 
                                placeholder="e.g., Is dark chocolate actually healthy?", 
-                               [cite_start]key="lab6_user_claim") # [cite: 9, 22]
+                               key="lab6_user_claim")
 
     # Button (Lab 6a)
-    [cite_start]if st.button("Check Fact", key="lab6_check_fact"): # [cite: 10, 23]
+    if st.button("Check Fact", key="lab6_check_fact"):
         if user_claim:
             # Show spinner while working (Lab 6c)
-            [cite_start]with st.spinner("Verifying... Searching sources and reasoning..."): # [cite: 24]
+            with st.spinner("Verifying... Searching sources and reasoning..."):
                 # Call the fact-check function (Lab 6c)
-                [cite_start]result_json_string = fact_check_claim(user_claim) # [cite: 25]
+                result_json_string = fact_check_claim(user_claim)
                 
                 if result_json_string:
                     try:
                         # Parse the JSON string into a Python dict
                         result_data = json.loads(result_json_string)
                         # Add to history (Lab 6d enhancement)
-                        [cite_start]st.session_state.claim_history.insert(0, result_data) # [cite: 35]
+                        st.session_state.claim_history.insert(0, result_data)
                     except json.JSONDecodeError:
                         st.error("Failed to parse the response from the API.")
                         st.text(result_json_string) # Show raw text for debugging
@@ -115,7 +115,7 @@ def main():
         latest_result = st.session_state.claim_history[0]
         
         # Display as raw JSON (as required by Lab 6a)
-        [cite_start]st.json(latest_result) # [cite: 11, 26]
+        st.json(latest_result) 
 
         # --- Optional: Formatted Output (Lab 6d Enhancement) ---
         with st.expander("View Formatted Result (Lab 6d Enhancement)"):
@@ -128,12 +128,12 @@ def main():
             if sources:
                 for source in sources:
                     # Format sources as clickable Markdown links
-                    [cite_start]st.markdown(f"- [{source.get('title')}]({source.get('url')})") # [cite: 34]
+                    st.markdown(f"- [{source.get('title')}]({source.get('url')})")
             else:
                 st.write("No sources provided.")
         # --- End Formatted Output ---
 
-        # [cite_start]Display history (Lab 6d enhancement) [cite: 35]
+        # Display history (Lab 6d enhancement)
         if len(st.session_state.claim_history) > 1:
             st.subheader("Checked Claims History")
             for item in st.session_state.claim_history[1:]:
@@ -141,18 +141,18 @@ def main():
 
     # --- 5. Reflection Section (Lab 6e) ---
     st.markdown("---")
-    [cite_start]with st.expander("Lab 6 Reflection"): # [cite: 37]
+    with st.expander("Lab 6 Reflection"):
         st.subheader("Reflection & Discussion")
         st.text_area(
-            [cite_start]"How did the model’s reasoning feel different from a standard chat model?", # [cite: 38]
+            "How did the model’s reasoning feel different from a standard chat model?",
             key="lab6_reflection_1"
         )
         st.text_area(
-            [cite_start]"Were the sources credible and diverse? Did you trust the verdict?", # [cite: 39]
+            "Were the sources credible and diverse? Did you trust the verdict?",
             key="lab6_reflection_2"
         )
         st.text_area(
-            [cite_start]"How does tool integration (web_search, json_schema) enhance trust and accuracy?", # [cite: 40]
+            "How does tool integration (web_search, json_schema) enhance trust and accuracy?",
             key="lab6_reflection_3"
         )
 
