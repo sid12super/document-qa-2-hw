@@ -53,8 +53,8 @@ def fact_check_claim(user_claim: str):
             # Use the web_search tool
             tools=[{"type": "web_search"}],
             
-            # Use format="json" as shown in the lab example 
-            format="json"
+            # The correct argument is response_format
+            response_format={"type": "json_object"}
         )
         
         # The API guarantees the output is a valid JSON string
