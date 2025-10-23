@@ -31,15 +31,18 @@ def fact_check_claim(user_claim: str):
     and returns a guaranteed JSON object.
     """
     
-    # System prompt as defined in the lab instructions 
+    # A much stricter prompt to force JSON output
+    # when the API arguments are not supported.
     system_prompt = """
     You are a factual verification assistant.
-    For any given claim, search the web for credible sources and return
-    a JSON object with:
+    For any given claim, search the web for credible sources.
+    You MUST respond with ONLY a valid JSON object and no other text.
+    Do not add any introductory text like "Here is the JSON".
+    The JSON object must contain:
     - claim
     - verdict: True / False / Partly True
     - explanation
-    - sources
+    - sources: a list of objects, each with a title and url
     """
     
     try:
@@ -53,11 +56,10 @@ def fact_check_claim(user_claim: str):
             # Use the web_search tool
             tools=[{"type": "web_search"}],
             
-            # The correct argument is response_format
-            response_format={"type": "json_object"}
+            # REMOVED the response_format/format argument entirely
         )
         
-        # The API guarantees the output is a valid JSON string
+        # The API *should* return just a JSON string
         return response.output_text
         
     except Exception as e:
@@ -95,12 +97,27 @@ def main():
                 
                 if result_json_string:
                     try:
-                        # Parse the JSON string into a Python dict
-                        result_data = json.loads(result_json_string)
+                        # --- ROBUST JSON PARSING ---
+                        # In case the model adds "Here's the JSON..."
+                        # we find the first '{' and last '}'
+                        json_start = result_json_string.find('{')
+                        json_end = result_json_string.rfind('}') + 1
+                        
+                        if json_start == -1 or json_end == 0:
+                            # If no JSON object is found, raise an error
+                            raise json.JSONDecodeError("No JSON object found in response.", result_json_string, 0)
+                        
+                        # Extract the clean JSON string
+                        clean_json_string = result_json_string[json_start:json_end]
+                        
+                        # Parse the clean JSON
+                        result_data = json.loads(clean_json_string)
+                        
                         # Add to history (Lab 6d enhancement)
                         st.session_state.claim_history.insert(0, result_data)
+                        
                     except json.JSONDecodeError:
-                        st.error("Failed to parse the response from the API.")
+                        st.error("Failed to parse JSON from the API's response. Raw response below:")
                         st.text(result_json_string) # Show raw text for debugging
         else:
             st.warning("Please enter a factual claim.")
