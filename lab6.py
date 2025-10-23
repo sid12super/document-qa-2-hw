@@ -19,40 +19,6 @@ except Exception as e:
 else:
     CLIENT_ERROR = None
 
-# Define the required JSON schema for the output
-# This ensures we get structured, reliable data from the API
-FACT_CHECK_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "claim": {
-            "type": "string",
-            "description": "The original claim being verified."
-        },
-        "verdict": {
-            "type": "string",
-            "enum": ["True", "False", "Partly True", "Unverified"],
-            "description": "The factual verdict for the claim."
-        },
-        "explanation": {
-            "type": "string",
-            "description": "A concise explanation for the verdict, based on the sources."
-        },
-        "sources": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "title": {"type": "string"},
-                    "url": {"type": "string", "format": "uri"}
-                },
-                "required": ["title", "url"]
-            },
-            "description": "A list of credible sources used for verification."
-        }
-    },
-    "required": ["claim", "verdict", "explanation", "sources"]
-}
-
 # Initialize session state for history (Lab 6d enhancement)
 if 'claim_history' not in st.session_state:
     st.session_state.claim_history = []
@@ -65,34 +31,30 @@ def fact_check_claim(user_claim: str):
     and returns a guaranteed JSON object.
     """
     
-    # System prompt as defined in the lab instructions
+    # System prompt as defined in the lab instructions 
     system_prompt = """
     You are a factual verification assistant.
     For any given claim, search the web for credible sources and return
-    a JSON object that adheres to the provided JSON schema.
-    
-    The JSON object must contain:
-    - claim: The original claim
-    - verdict: True / False / Partly True / Unverified
-    - explanation: Your reasoning
-    - sources: A list of {title, url} objects
+    a JSON object with:
+    - claim
+    - verdict: True / False / Partly True
+    - explanation
+    - sources
     """
     
     try:
-        # Use client.responses.create
+        # Use client.responses.create [cite: 15, 18]
         response = client.responses.create(
-            model="gpt-4.1", # As specified in the lab instructions
+            model="gpt-4.1", # As specified in the lab instructions 
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_claim}
             ],
-            # Use the web_search tool
+            # Use the web_search tool [cite: 16, 18]
             tools=[{"type": "web_search"}],
-            # Enforce the JSON schema
-            response_format={
-                "type": "json_schema",
-                "json_schema": FACT_CHECK_SCHEMA
-            }
+            
+            # Use format="json" as shown in the lab example 
+            format="json"
         )
         
         # The API guarantees the output is a valid JSON string
@@ -115,28 +77,28 @@ def main():
         st.stop()
 
     # Page Title (Lab 6a)
-    st.title("🤖 AI Fact-Checker + Citation Builder")
+    st.title("🤖 AI Fact-Checker + Citation Builder") [cite: 7, 21]
     st.markdown("---")
 
     # Input section (Lab 6a)
     user_claim = st.text_input("Enter a factual claim to verify:", 
                                placeholder="e.g., Is dark chocolate actually healthy?", 
-                               key="lab6_user_claim")
+                               key="lab6_user_claim") [cite: 9, 22]
 
     # Button (Lab 6a)
-    if st.button("Check Fact", key="lab6_check_fact"):
+    if st.button("Check Fact", key="lab6_check_fact"): [cite: 10, 23]
         if user_claim:
             # Show spinner while working (Lab 6c)
-            with st.spinner("Verifying... Searching sources and reasoning..."):
+            with st.spinner("Verifying... Searching sources and reasoning..."): [cite: 24]
                 # Call the fact-check function (Lab 6c)
-                result_json_string = fact_check_claim(user_claim)
+                result_json_string = fact_check_claim(user_claim) [cite: 25]
                 
                 if result_json_string:
                     try:
                         # Parse the JSON string into a Python dict
                         result_data = json.loads(result_json_string)
                         # Add to history (Lab 6d enhancement)
-                        st.session_state.claim_history.insert(0, result_data)
+                        st.session_state.claim_history.insert(0, result_data) [cite: 35]
                     except json.JSONDecodeError:
                         st.error("Failed to parse the response from the API.")
                         st.text(result_json_string) # Show raw text for debugging
@@ -152,7 +114,7 @@ def main():
         # Display the most recent result
         latest_result = st.session_state.claim_history[0]
         
-        # Display as raw JSON (as required by Lab 6a)
+        # Display as raw JSON (as required by Lab 6a) [cite: 11, 26]
         st.json(latest_result) 
 
         # --- Optional: Formatted Output (Lab 6d Enhancement) ---
@@ -165,13 +127,13 @@ def main():
             sources = latest_result.get('sources', [])
             if sources:
                 for source in sources:
-                    # Format sources as clickable Markdown links
+                    # Format sources as clickable Markdown links [cite: 34]
                     st.markdown(f"- [{source.get('title')}]({source.get('url')})")
             else:
                 st.write("No sources provided.")
         # --- End Formatted Output ---
 
-        # Display history (Lab 6d enhancement)
+        # Display history (Lab 6d enhancement) [cite: 35]
         if len(st.session_state.claim_history) > 1:
             st.subheader("Checked Claims History")
             for item in st.session_state.claim_history[1:]:
@@ -179,18 +141,18 @@ def main():
 
     # --- 5. Reflection Section (Lab 6e) ---
     st.markdown("---")
-    with st.expander("Lab 6 Reflection"):
+    with st.expander("Lab 6 Reflection"): [cite: 37]
         st.subheader("Reflection & Discussion")
         st.text_area(
-            "How did the model’s reasoning feel different from a standard chat model?",
+            "How did the model’s reasoning feel different from a standard chat model?", [cite: 38]
             key="lab6_reflection_1"
         )
         st.text_area(
-            "Were the sources credible and diverse? Did you trust the verdict?",
+            "Were the sources credible and diverse? Did you trust the verdict?", [cite: 39]
             key="lab6_reflection_2"
         )
         st.text_area(
-            "How does tool integration (web_search, json_schema) enhance trust and accuracy?",
+            "How does tool integration (web_search, json_schema) enhance trust and accuracy?", [cite: 40]
             key="lab6_reflection_3"
         )
 
