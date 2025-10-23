@@ -1,6 +1,7 @@
 # lab6.py
 # AI Fact-Checker + Citation Builder
 # This script implements Lab 6, structured with a main() function.
+# Now includes Lab 6d enhancement: Confidence Score
 
 import streamlit as st
 from openai import OpenAI
@@ -23,7 +24,7 @@ else:
 if 'claim_history' not in st.session_state:
     st.session_state.claim_history = []
 
-# --- 2. Core Fact-Checker Function (Lab 6b) ---
+# --- 2. Core Fact-Checker Function (Lab 6b & 6d) ---
 
 def fact_check_claim(user_claim: str):
     """
@@ -31,18 +32,19 @@ def fact_check_claim(user_claim: str):
     and returns a guaranteed JSON object.
     """
     
-    # A much stricter prompt to force JSON output
-    # when the API arguments are not supported.
+    # --- THIS IS THE UPDATE ---
+    # We've added "confidence_score" to the prompt's requirements 
     system_prompt = """
     You are a factual verification assistant.
     For any given claim, search the web for credible sources.
     You MUST respond with ONLY a valid JSON object and no other text.
     Do not add any introductory text like "Here is the JSON".
     The JSON object must contain:
-    - claim
-    - verdict: True / False / Partly True
-    - explanation
-    - sources: a list of objects, each with a title and url
+    - claim: The original claim.
+    - verdict: "True", "False", or "Partly True".
+    - confidence_score: "High", "Medium", or "Low" based on the consistency and credibility of the web sources.
+    - explanation: A concise explanation for the verdict.
+    - sources: a list of objects, each with a "title" and "url".
     """
     
     try:
@@ -137,7 +139,20 @@ def main():
         # --- Optional: Formatted Output (Lab 6d Enhancement) ---
         with st.expander("View Formatted Result (Lab 6d Enhancement)"):
             st.info(f"**Claim:** {latest_result.get('claim')}")
-            st.success(f"**Verdict:** {latest_result.get('verdict')}")
+            
+            # --- THIS IS THE UPDATE ---
+            # Display the verdict with color-coded confidence
+            verdict = latest_result.get('verdict', 'N/A')
+            confidence = latest_result.get('confidence_score', 'N/A')
+            
+            if confidence.lower() == "high":
+                st.success(f"**Verdict:** {verdict} (Confidence: {confidence})")
+            elif confidence.lower() == "medium":
+                st.warning(f"**Verdict:** {verdict} (Confidence: {confidence})")
+            else:
+                st.error(f"**Verdict:** {verdict} (Confidence: {confidence})")
+            # --- END UPDATE ---
+
             st.write(f"**Explanation:**\n{latest_result.get('explanation')}")
             
             st.write("**Sources:**")
