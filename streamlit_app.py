@@ -5,6 +5,7 @@ import lab3
 import lab4  # Renamed from lab3
 import lab5  # Renamed from lab4
 import lab6
+import lab8
 
 def main():
     st.set_page_config(page_title="HW Manager", page_icon="📚")
@@ -33,6 +34,8 @@ def main():
         lab5.main()  # Call the `main` function from lab5.py
     elif page == "lab6":
         lab6.main()  # Call the `main` function from lab6.py
+    elif page == "lab8":
+        lab8.main()  # Call the `main` function from lab8.py
 if __name__ == "__main__":
     main()
 
