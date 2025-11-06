@@ -8,10 +8,10 @@ google-generativeai
 anthropic
 tiktoken
 chromadb
-langchain
+langchain==0.1.20
 pysqlite3-binary
 setuptools
 wheel
 protobuf
-langchain-openai
+langchain-openai==0.1.7
 faiss-cpu
