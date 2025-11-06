@@ -14,3 +14,4 @@ setuptools
 wheel
 protobuf
 langchain-openai
+faiss-cpu
