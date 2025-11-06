@@ -13,3 +13,4 @@ pysqlite3-binary
 setuptools
 wheel
 protobuf
+langchain-openai

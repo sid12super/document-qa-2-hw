@@ -12,7 +12,7 @@ def main():
 
     # Sidebar navigation
     st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Go to", ["Home", "lab1", "lab2", "lab3", "lab4", "lab5", "lab6"])
+    page = st.sidebar.radio("Go to", ["Home", "lab1", "lab2", "lab3", "lab4", "lab5", "lab6", "lab8"])
 
     # Render the selected page
     if page == "Home":
